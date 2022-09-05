@@ -9,6 +9,7 @@ from bar_maker.core.factory import Registry
 from gcsfs import GCSFileSystem
 from s3fs import S3FileSystem
 
+# a list of methods that are shared by fsspec objects
 common_methods = [
     "async_impl",
     "asynchronous",
@@ -97,25 +98,31 @@ common_methods = [
 
 
 class FSBase(metaclass=ABCMeta):
+    """base class to inherit to our filesystem classes"""
+
     def __init__(self) -> None:
         pass
 
     @abstractmethod
     def prefix(self):
-        """filepath prefix is required"""
+        """filepath prefix is required for writes"""
 
     @abstractmethod
     def browser_link(self):
-        """there should be a link provided for browser locations"""
+        """there should be a link provided for browser locations if we wish to output this in notifiers"""
 
 
 class GCFS(FSBase):
+    """a GCSFileSystem that inherits our base filesystem class"""
+
     def __init__(self) -> None:
         super().__init__()
 
+        # create an agnostic fsspec instance and a native one for specialised tasks
         self.agnostic = GCSFileSystem(os.environ.get("GCP_PROJECT", ""))
         self.native = ""
 
+        # manually inherit methods from the agnostic instance
         for method in common_methods:
             setattr(self, method, getattr(self.agnostic, method))
 
@@ -127,9 +134,12 @@ class GCFS(FSBase):
 
 
 class S3FS(FSBase):
+    """an S3FileSystem that inherits our base filesystem class"""
+
     def __init__(self) -> None:
         super().__init__()
 
+        # create an agnostic fsspec instance and a native one for specialised tasks
         self.agnostic = S3FileSystem(
             anon=False,
             use_ssl=False,
@@ -139,6 +149,7 @@ class S3FS(FSBase):
         )
         self.native = ""
 
+        # manually inherit methods from the agnostic instance
         for method in common_methods:
             setattr(self, method, getattr(self.agnostic, method))
 
@@ -150,12 +161,16 @@ class S3FS(FSBase):
 
 
 class AZFS(FSBase):
+    """an AzureDataLakeFileSystem that inherits our base filesystem class"""
+
     def __init__(self) -> None:
         super().__init__()
 
+        # create an agnostic fsspec instance and a native one for specialised tasks
         self.agnostic = AzureDatalakeFileSystem()
         self.native = ""
 
+        # manually inherit methods from the agnostic instance
         for method in common_methods:
             setattr(self, method, getattr(self.agnostic, method))
 
@@ -176,6 +191,17 @@ class GetFileSystem:
         pass
 
     def execute(self, signature):
+        """execution method to yield an authenticated filesystem object
+
+        Args:
+            signature (str): a string identifier for the type of filesystem to use
+
+        Raises:
+            ValueError: raised if an invalid signature is passed
+
+        Returns:
+            FSBase: an authenticated filesystem object
+        """
         try:
             return {"gcsfs": GCFS, "s3fs": S3FS, "azfs": AZFS}[signature]()
         except:

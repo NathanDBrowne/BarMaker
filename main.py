@@ -6,16 +6,30 @@ from bar_maker.core.factory import Registry
 
 
 class Worker:
+    """
+    A class that instantiates and executes task classes
+    """
+
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
 
     @classmethod
     def from_dict(cls, d):
-        """task execute method"""
+        """method to create a worker from a dictionary
+
+        Args:
+            d (dict): dictionary that contains attributes to assign
+
+        Returns:
+            Worker: Worker instance
+        """
         return cls(**d)
 
     def run(self):
+        """
+        iterate through each task taking returned objects and recycling them if given
+        """
         ret = None
         for i, task in enumerate(self.tasks):
             task["args"]["fs_signature"] = self.fs_signature
